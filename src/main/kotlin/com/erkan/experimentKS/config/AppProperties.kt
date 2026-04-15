@@ -1,12 +1,10 @@
-package com.erkan.experimentKS.config
+package com.erkan.experimentks.config
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 
-@ConfigurationProperties(prefix = "app")
+@ConfigurationProperties("app")
 data class AppProperties(
 	val name: String,
-	val description: String,
-	val version: String,
-	val environment: String,
 	val apiBasePath: String,
+	val baseUrl: String?,
 )

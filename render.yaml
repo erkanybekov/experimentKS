@@ -1,0 +1,32 @@
+services:
+  - name: experimentks
+    type: web
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: commit
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: experimentks-db
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_ACCESS_TOKEN_TTL
+        value: PT15M
+      - key: JWT_REFRESH_TOKEN_TTL
+        value: P30D
+      - key: LOGGING_LEVEL_COM_ERKAN_EXPERIMENTKS
+        value: INFO
+
+databases:
+  - name: experimentks-db
+    plan: basic-256mb
+    region: oregon
+    postgresMajorVersion: "17"
+    databaseName: experimentks

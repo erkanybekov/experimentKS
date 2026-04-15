@@ -1,4 +1,4 @@
-package com.erkan.experimentKS.config
+package com.erkan.experimentks.config
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
