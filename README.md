@@ -139,7 +139,9 @@ The repository includes `render.yaml` for a Render Blueprint deploy with:
 
 - one Docker web service
 - one managed PostgreSQL instance
+- free-tier plans for both services by default
 - `SPRING_DATASOURCE_URL` wired from the database connection string
+- automatic conversion of Render-style `postgresql://...` URLs into Spring JDBC datasource settings at startup
 - `/actuator/health` configured as the health check
 
 Manual deploy steps:
@@ -152,6 +154,8 @@ Manual deploy steps:
 6. After the first deploy, open the service URL and verify `/actuator/health` and `/swagger-ui.html`.
 
 The app reads Render’s `PORT` environment variable automatically through Spring Boot configuration.
+
+Free-tier note: Render free web services can spin down on inactivity, and free Render Postgres is intended for preview/hobby use with time and feature limits. Check the current Render free-tier limits before relying on it long term.
 
 Reference docs used for the Blueprint shape and Postgres connection wiring:
 
