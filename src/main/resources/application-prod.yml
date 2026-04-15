@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: ${EXPERIMENTKS_DB_URL}
+    username: ${EXPERIMENTKS_DB_USERNAME}
+    password: ${EXPERIMENTKS_DB_PASSWORD}
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${EXPERIMENTKS_REDIS_HOST}
+      port: ${EXPERIMENTKS_REDIS_PORT:6379}
+      password: ${EXPERIMENTKS_REDIS_PASSWORD:}
+      repositories:
+        enabled: false
+
+app:
+  environment: prod
