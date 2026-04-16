@@ -1,13 +1,12 @@
 package com.erkan.experimentks.config
 
 import com.erkan.experimentks.shared.security.AuthenticatedUser
-import com.erkan.experimentks.shared.security.JwtTokenType
+import com.erkan.experimentks.shared.security.JwtAccessTokenAuthenticationService
 import com.erkan.experimentks.shared.security.RestAccessDeniedHandler
 import com.erkan.experimentks.shared.security.RestAuthenticationEntryPoint
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.convert.converter.Converter
-import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.config.Customizer
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -26,7 +25,6 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import org.springframework.security.web.SecurityFilterChain
 import java.nio.charset.StandardCharsets
-import java.util.UUID
 import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 import com.nimbusds.jose.jwk.source.ImmutableSecret
@@ -80,16 +78,10 @@ class SecurityConfig {
 	fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
 
 	@Bean
-	fun jwtAuthenticationConverter(): Converter<Jwt, out AbstractAuthenticationToken> = Converter { jwt ->
-		val tokenType = jwt.getClaimAsString("tokenType")
-		if (tokenType != JwtTokenType.ACCESS.name) {
-			throw BadCredentialsException("Invalid token type for API access.")
-		}
-
-		val principal = AuthenticatedUser(
-			id = UUID.fromString(jwt.subject),
-		)
-
+	fun jwtAuthenticationConverter(
+		jwtAccessTokenAuthenticationService: JwtAccessTokenAuthenticationService,
+	): Converter<Jwt, out AbstractAuthenticationToken> = Converter { jwt ->
+		val principal: AuthenticatedUser = jwtAccessTokenAuthenticationService.fromDecodedJwt(jwt)
 		UsernamePasswordAuthenticationToken.authenticated(principal, jwt.tokenValue, emptyList())
 	}
 

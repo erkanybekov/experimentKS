@@ -120,6 +120,18 @@ abstract class AbstractIntegrationTest {
 
 	protected fun bearer(token: String): String = "Bearer $token"
 
+	protected fun currentUserId(accessToken: String): String {
+		val response = mockMvc.perform(
+			get("/api/v1/users/me")
+				.header("Authorization", bearer(accessToken)),
+		)
+			.andExpect(status().isOk)
+			.andReturn()
+			.response
+
+		return objectMapper.readTree(response.contentAsString)["id"].asText()
+	}
+
 	private fun parseTokens(content: String): AuthTokens {
 		val root = objectMapper.readTree(content)
 		return AuthTokens(

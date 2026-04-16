@@ -61,6 +61,10 @@ Public:
 Authenticated:
 
 - `GET /api/v1/users/me`
+- `GET /api/v1/chat/rooms`
+- `POST /api/v1/chat/rooms`
+- `POST /api/v1/chat/rooms/{roomId}/join`
+- `GET /api/v1/chat/rooms/{roomId}/messages`
 - `GET /api/v1/categories`
 - `POST /api/v1/categories`
 - `GET /api/v1/transactions`
@@ -69,6 +73,12 @@ Authenticated:
 - `PUT /api/v1/transactions/{id}`
 - `DELETE /api/v1/transactions/{id}`
 - `GET /api/v1/dashboard?period=MONTH`
+
+WebSocket:
+
+- `GET /ws/chat?access_token=<access-token>`
+- inbound actions: `SUBSCRIBE_ROOM`, `UNSUBSCRIBE_ROOM`, `SEND_MESSAGE`
+- outbound event types: `SUBSCRIBED`, `UNSUBSCRIBED`, `MESSAGE_CREATED`, `ERROR`
 
 ## Environment Variables
 
