@@ -76,9 +76,23 @@ Authenticated:
 
 WebSocket:
 
-- `GET /ws/chat?access_token=<access-token>`
+- `GET /ws/chat` with `Authorization: Bearer <access-token>` in the handshake
 - inbound actions: `SUBSCRIBE_ROOM`, `UNSUBSCRIBE_ROOM`, `SEND_MESSAGE`
-- outbound event types: `SUBSCRIBED`, `UNSUBSCRIBED`, `MESSAGE_CREATED`, `ERROR`
+- outbound event envelope: `{ "type": "...", "payload": { ... }, "eventId": "...", "serverTime": "..." }`
+- outbound event types:
+  - `room.subscribed`
+  - `room.unsubscribed`
+  - `message.created`
+  - `message.ack`
+  - `error`
+
+Notes for chat clients:
+
+- `access_token` in WebSocket query params is not supported.
+- missing or invalid token during the WebSocket handshake returns HTTP `401 Unauthorized`; if an established session loses auth context, the server closes it with code `4401` and reason `AUTHENTICATION_REQUIRED`.
+- `message.created` carries the same `ChatMessageResponse` shape as REST.
+- `message.ack` is returned to the sending session and includes the full server message payload keyed by `clientMessageId`.
+- reading room history does not require `join` if the user is already a member of the room.
 
 ## Environment Variables
 

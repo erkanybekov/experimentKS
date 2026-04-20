@@ -1,6 +1,6 @@
 package com.erkan.experimentks.chat.ws
 
-import com.erkan.experimentks.chat.api.ChatMessageResponse
+import java.time.Instant
 import java.util.UUID
 
 enum class ChatSocketAction {
@@ -16,14 +16,19 @@ data class ChatSocketInboundMessage(
 	val content: String?,
 )
 
-data class ChatSocketOutboundMessage(
+data class ChatSocketEventEnvelope(
 	val type: String,
-	val roomId: UUID? = null,
-	val message: ChatMessageResponse? = null,
-	val error: ChatSocketErrorResponse? = null,
+	val payload: Any?,
+	val eventId: UUID,
+	val serverTime: Instant,
 )
 
-data class ChatSocketErrorResponse(
+data class ChatSocketRoomSubscriptionPayload(
+	val roomId: UUID,
+)
+
+data class ChatSocketErrorPayload(
 	val code: String,
 	val message: String,
+	val details: Map<String, Any?> = emptyMap(),
 )

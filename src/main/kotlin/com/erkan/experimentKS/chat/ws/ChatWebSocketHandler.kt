@@ -10,6 +10,8 @@ import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
 import org.springframework.web.socket.TextMessage as SpringTextMessage
 import tools.jackson.databind.ObjectMapper
+import java.time.Clock
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -17,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
 class ChatWebSocketHandler(
 	private val objectMapper: ObjectMapper,
 	private val chatService: ChatService,
+	private val clock: Clock,
 ) : TextWebSocketHandler() {
 
 	private val roomSessions: MutableMap<UUID, MutableSet<WebSocketSession>> = ConcurrentHashMap()
@@ -31,14 +34,24 @@ class ChatWebSocketHandler(
 		message: SpringTextMessage,
 	) {
 		val currentUser = currentUser(session) ?: run {
-			session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Missing authenticated user."))
+			sendError(
+				session = session,
+				code = "AUTHENTICATION_REQUIRED",
+				message = "WebSocket session is not authenticated.",
+			)
+			closeSession(session, AUTHENTICATION_REQUIRED_CLOSE_STATUS)
 			return
 		}
 
 		val inboundMessage = try {
 			objectMapper.readValue(message.payload, ChatSocketInboundMessage::class.java)
 		} catch (_: Exception) {
-			sendError(session, "INVALID_PAYLOAD", "WebSocket message payload is invalid.")
+			sendError(
+				session = session,
+				code = "INVALID_PAYLOAD",
+				message = "WebSocket message payload is invalid.",
+				details = mapOf("expectedContract" to "ChatSocketInboundMessage"),
+			)
 			return
 		}
 
@@ -68,7 +81,12 @@ class ChatWebSocketHandler(
 		roomId: UUID?,
 	) {
 		val resolvedRoomId = roomId ?: run {
-			sendError(session, "ROOM_ID_REQUIRED", "roomId is required to subscribe.")
+			sendError(
+				session = session,
+				code = "ROOM_ID_REQUIRED",
+				message = "roomId is required to subscribe.",
+				details = mapOf("field" to "roomId"),
+			)
 			return
 		}
 
@@ -79,13 +97,7 @@ class ChatWebSocketHandler(
 
 		roomSessions.computeIfAbsent(resolvedRoomId) { ConcurrentHashMap.newKeySet() }.add(session)
 		sessionRooms.computeIfAbsent(session.id) { ConcurrentHashMap.newKeySet() }.add(resolvedRoomId)
-		sendEvent(
-			session = session,
-			payload = ChatSocketOutboundMessage(
-				type = "SUBSCRIBED",
-				roomId = resolvedRoomId,
-			),
-		)
+		sendEvent(session, ROOM_SUBSCRIBED_EVENT_TYPE, ChatSocketRoomSubscriptionPayload(resolvedRoomId))
 	}
 
 	private fun unsubscribeRoom(
@@ -93,19 +105,18 @@ class ChatWebSocketHandler(
 		roomId: UUID?,
 	) {
 		val resolvedRoomId = roomId ?: run {
-			sendError(session, "ROOM_ID_REQUIRED", "roomId is required to unsubscribe.")
+			sendError(
+				session = session,
+				code = "ROOM_ID_REQUIRED",
+				message = "roomId is required to unsubscribe.",
+				details = mapOf("field" to "roomId"),
+			)
 			return
 		}
 
 		roomSessions[resolvedRoomId]?.remove(session)
 		sessionRooms[session.id]?.remove(resolvedRoomId)
-		sendEvent(
-			session = session,
-			payload = ChatSocketOutboundMessage(
-				type = "UNSUBSCRIBED",
-				roomId = resolvedRoomId,
-			),
-		)
+		sendEvent(session, ROOM_UNSUBSCRIBED_EVENT_TYPE, ChatSocketRoomSubscriptionPayload(resolvedRoomId))
 	}
 
 	private fun sendMessage(
@@ -114,19 +125,34 @@ class ChatWebSocketHandler(
 		inboundMessage: ChatSocketInboundMessage,
 	) {
 		val roomId = inboundMessage.roomId ?: run {
-			sendError(session, "ROOM_ID_REQUIRED", "roomId is required to send a message.")
+			sendError(
+				session = session,
+				code = "ROOM_ID_REQUIRED",
+				message = "roomId is required to send a message.",
+				details = mapOf("field" to "roomId"),
+			)
 			return
 		}
 		val clientMessageId = inboundMessage.clientMessageId ?: run {
-			sendError(session, "CLIENT_MESSAGE_ID_REQUIRED", "clientMessageId is required to send a message.")
+			sendError(
+				session = session,
+				code = "CLIENT_MESSAGE_ID_REQUIRED",
+				message = "clientMessageId is required to send a message.",
+				details = mapOf("field" to "clientMessageId"),
+			)
 			return
 		}
 		val content = inboundMessage.content ?: run {
-			sendError(session, "CONTENT_REQUIRED", "content is required to send a message.")
+			sendError(
+				session = session,
+				code = "CONTENT_REQUIRED",
+				message = "content is required to send a message.",
+				details = mapOf("field" to "content"),
+			)
 			return
 		}
 
-		val messageResponse = try {
+		val sendResult = try {
 			chatService.sendMessage(
 				userId = currentUser.id,
 				roomId = roomId,
@@ -138,49 +164,67 @@ class ChatWebSocketHandler(
 			return
 		}
 
-		val outboundMessage = ChatSocketOutboundMessage(
-			type = "MESSAGE_CREATED",
-			roomId = roomId,
-			message = messageResponse,
+		sendEvent(
+			session = session,
+			type = MESSAGE_ACK_EVENT_TYPE,
+			payload = sendResult.message,
 		)
-		broadcastToRoom(roomId, outboundMessage)
+
+		if (sendResult.created) {
+			broadcastToRoom(
+				roomId = roomId,
+				type = MESSAGE_CREATED_EVENT_TYPE,
+				payload = sendResult.message,
+				excludedSessionId = session.id,
+			)
+		}
 	}
 
 	private fun broadcastToRoom(
 		roomId: UUID,
-		payload: ChatSocketOutboundMessage,
+		type: String,
+		payload: Any?,
+		excludedSessionId: String? = null,
 	) {
 		roomSessions[roomId].orEmpty()
-			.filter { it.isOpen }
-			.forEach { sendEvent(it, payload) }
+			.filter { it.isOpen && it.id != excludedSessionId }
+			.forEach { sendEvent(it, type, payload) }
 	}
 
 	private fun sendError(
 		session: WebSocketSession,
 		code: String,
 		message: String,
+		details: Map<String, Any?> = emptyMap(),
 	) {
 		sendEvent(
 			session = session,
-			payload = ChatSocketOutboundMessage(
-				type = "ERROR",
-				error = ChatSocketErrorResponse(
-					code = code,
-					message = message,
-				),
+			type = ERROR_EVENT_TYPE,
+			payload = ChatSocketErrorPayload(
+				code = code,
+				message = message,
+				details = details,
 			),
 		)
 	}
 
 	private fun sendEvent(
 		session: WebSocketSession,
-		payload: ChatSocketOutboundMessage,
+		type: String,
+		payload: Any?,
 	) {
 		if (!session.isOpen) {
 			return
 		}
 
-		val jsonPayload = objectMapper.writeValueAsString(payload)
+		val jsonPayload = objectMapper.writeValueAsString(
+			ChatSocketEventEnvelope(
+				type = type,
+				payload = payload,
+				eventId = UUID.randomUUID(),
+				serverTime = Instant.now(clock),
+			),
+		)
 		synchronized(session) {
 			if (session.isOpen) {
 				session.sendMessage(TextMessage(jsonPayload))
@@ -188,6 +232,26 @@ class ChatWebSocketHandler(
 		}
 	}
 
+	private fun closeSession(
+		session: WebSocketSession,
+		status: CloseStatus,
+	) {
+		if (!session.isOpen) {
+			return
+		}
+
+		session.close(status)
+	}
+
 	private fun currentUser(session: WebSocketSession): AuthenticatedUser? =
 		session.attributes[ChatHandshakeInterceptor.AUTHENTICATED_USER_ATTRIBUTE] as? AuthenticatedUser
+
+	companion object {
+		private val AUTHENTICATION_REQUIRED_CLOSE_STATUS = CloseStatus(4401, "AUTHENTICATION_REQUIRED")
+		private const val ROOM_SUBSCRIBED_EVENT_TYPE = "room.subscribed"
+		private const val ROOM_UNSUBSCRIBED_EVENT_TYPE = "room.unsubscribed"
+		private const val MESSAGE_CREATED_EVENT_TYPE = "message.created"
+		private const val MESSAGE_ACK_EVENT_TYPE = "message.ack"
+		private const val ERROR_EVENT_TYPE = "error"
+	}
 }

@@ -13,7 +13,15 @@ class JwtAccessTokenAuthenticationService(
 ) {
 
 	fun fromBearerToken(token: String): AuthenticatedUser {
-		val normalizedToken = token.removePrefix("Bearer").trim()
+		val normalizedToken = token.trim()
+			.let { rawToken ->
+				if (rawToken.startsWith(BEARER_PREFIX, ignoreCase = true)) {
+					rawToken.substring(BEARER_PREFIX.length)
+				} else {
+					rawToken
+				}
+			}
+			.trim()
 		if (normalizedToken.isBlank()) {
 			throw BadCredentialsException("Missing bearer token.")
 		}
@@ -36,5 +44,9 @@ class JwtAccessTokenAuthenticationService(
 		return AuthenticatedUser(
 			id = UUID.fromString(jwt.subject),
 		)
+	}
+
+	companion object {
+		private const val BEARER_PREFIX = "Bearer "
 	}
 }

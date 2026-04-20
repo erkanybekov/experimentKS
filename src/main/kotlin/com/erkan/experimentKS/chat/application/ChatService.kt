@@ -24,6 +24,11 @@ import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
+data class ChatMessageSendResult(
+	val message: ChatMessageResponse,
+	val created: Boolean,
+)
+
 @Service
 class ChatService(
 	private val chatRoomRepository: ChatRoomRepository,
@@ -134,7 +139,7 @@ class ChatService(
 		roomId: UUID,
 		clientMessageId: UUID,
 		content: String,
-	): ChatMessageResponse {
+	): ChatMessageSendResult {
 		ensureMembership(userId, roomId)
 		val normalizedContent = content.trim()
 		if (normalizedContent.isBlank()) {
@@ -150,7 +155,10 @@ class ChatService(
 			clientMessageId = clientMessageId,
 		)
 		if (existingMessage != null) {
-			return existingMessage.toResponse()
+			return ChatMessageSendResult(
+				message = existingMessage.toResponse(),
+				created = false,
+			)
 		}
 
 		val room = findRoom(roomId)
@@ -164,7 +172,10 @@ class ChatService(
 			),
 		)
 
-		return message.toResponse()
+		return ChatMessageSendResult(
+			message = message.toResponse(),
+			created = true,
+		)
 	}
 
 	@Transactional(readOnly = true)

@@ -27,10 +27,12 @@ data class ChatRoomResponse(
 )
 
 data class ChatMessageResponse(
-	val id: UUID,
-	val roomId: UUID,
 	val senderUserId: UUID,
+	val senderDisplayName: String,
+	val senderAvatarUrl: String?,
+	val id: UUID,
 	val clientMessageId: UUID,
+	val roomId: UUID,
 	val content: String,
 	val createdAt: Instant,
 	val updatedAt: Instant,
@@ -55,10 +57,12 @@ fun ChatRoom.toResponse(
 
 fun ChatMessage.toResponse(): ChatMessageResponse =
 	ChatMessageResponse(
-		id = id,
-		roomId = room.id,
 		senderUserId = senderUser.id,
+		senderDisplayName = senderUser.displayName,
+		senderAvatarUrl = null,
+		id = id,
 		clientMessageId = clientMessageId,
+		roomId = room.id,
 		content = content,
 		createdAt = requireNotNull(createdAt),
 		updatedAt = requireNotNull(updatedAt),
