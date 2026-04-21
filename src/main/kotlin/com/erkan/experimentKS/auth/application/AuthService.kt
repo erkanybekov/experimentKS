@@ -15,6 +15,8 @@ import com.erkan.experimentks.shared.api.ConflictException
 import com.erkan.experimentks.shared.api.BadRequestException
 import com.erkan.experimentks.shared.api.NotFoundException
 import com.erkan.experimentks.shared.api.UnauthorizedException
+import com.erkan.experimentks.shared.domain.createdAtOrThrow
+import com.erkan.experimentks.shared.domain.updatedAtOrThrow
 import com.erkan.experimentks.shared.security.IssuedTokenPair
 import com.erkan.experimentks.shared.security.JwtTokenService
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -149,7 +151,7 @@ class AuthService(
 			id = id,
 			email = email,
 			displayName = displayName,
-			createdAt = requireNotNull(createdAt),
-			updatedAt = requireNotNull(updatedAt),
+			createdAt = createdAtOrThrow,
+			updatedAt = updatedAtOrThrow,
 		)
 }

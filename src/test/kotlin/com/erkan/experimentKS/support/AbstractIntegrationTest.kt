@@ -1,6 +1,5 @@
 package com.erkan.experimentks.support
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -14,6 +13,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
+import tools.jackson.databind.ObjectMapper
 
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -23,7 +23,8 @@ abstract class AbstractIntegrationTest {
 	@Autowired
 	protected lateinit var mockMvc: MockMvc
 
-	protected val objectMapper = ObjectMapper()
+	@Autowired
+	protected lateinit var objectMapper: ObjectMapper
 
 	protected fun signup(
 		email: String,

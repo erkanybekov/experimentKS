@@ -3,6 +3,8 @@ package com.erkan.experimentks.chat.api
 import com.erkan.experimentks.chat.domain.ChatMessage
 import com.erkan.experimentks.chat.domain.ChatRoom
 import com.erkan.experimentks.chat.domain.ChatRoomMember
+import com.erkan.experimentks.shared.domain.createdAtOrThrow
+import com.erkan.experimentks.shared.domain.updatedAtOrThrow
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import java.time.Instant
@@ -51,8 +53,8 @@ fun ChatRoom.toResponse(
 		lastActivityAt = lastActivityAt,
 		lastMessagePreview = lastMessagePreview,
 		memberCount = memberCount,
-		createdAt = requireNotNull(createdAt),
-		updatedAt = requireNotNull(updatedAt),
+		createdAt = createdAtOrThrow,
+		updatedAt = updatedAtOrThrow,
 	)
 
 fun ChatMessage.toResponse(): ChatMessageResponse =
@@ -64,6 +66,6 @@ fun ChatMessage.toResponse(): ChatMessageResponse =
 		clientMessageId = clientMessageId,
 		roomId = room.id,
 		content = content,
-		createdAt = requireNotNull(createdAt),
-		updatedAt = requireNotNull(updatedAt),
+		createdAt = createdAtOrThrow,
+		updatedAt = updatedAtOrThrow,
 	)

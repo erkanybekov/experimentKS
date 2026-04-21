@@ -24,6 +24,12 @@ abstract class BaseEntity {
 	var updatedAt: Instant? = null
 }
 
+val BaseEntity.createdAtOrThrow: Instant
+	get() = requireNotNull(createdAt) { "createdAt is not initialized." }
+
+val BaseEntity.updatedAtOrThrow: Instant
+	get() = requireNotNull(updatedAt) { "updatedAt is not initialized." }
+
 @MappedSuperclass
 abstract class SoftDeletableEntity : BaseEntity() {
 

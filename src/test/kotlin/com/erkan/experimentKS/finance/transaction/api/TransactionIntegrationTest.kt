@@ -152,4 +152,48 @@ class TransactionIntegrationTest : AbstractIntegrationTest() {
 			.andExpect(jsonPath("$.items.length()").value(1))
 			.andExpect(jsonPath("$.items[0].id").value(incomeId))
 	}
+
+	@Test
+	fun `enum request fields are validated instead of failing as malformed input`() {
+		val auth = signup("finance-validation@example.com", displayName = "Finance Validation User")
+		val accessToken = auth.accessToken
+		val expenseCategoryId = findCategoryId(accessToken, "Food", "EXPENSE")
+
+		mockMvc.perform(
+			post("/api/v1/categories")
+				.header("Authorization", bearer(accessToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(
+					"""
+					{
+					  "name": "Travel",
+					  "type": null
+					}
+					""".trimIndent(),
+				),
+		)
+			.andExpect(status().isBadRequest)
+			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("type"))
+
+		mockMvc.perform(
+			post("/api/v1/transactions")
+				.header("Authorization", bearer(accessToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(
+					"""
+					{
+					  "categoryId": "$expenseCategoryId",
+					  "type": null,
+					  "amount": 10.00,
+					  "note": "Broken enum payload",
+					  "occurredAt": "2026-04-15T12:00:00Z"
+					}
+					""".trimIndent(),
+				),
+		)
+			.andExpect(status().isBadRequest)
+			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("type"))
+	}
 }

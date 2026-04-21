@@ -2,6 +2,8 @@ package com.erkan.experimentks.finance.transaction.api
 
 import com.erkan.experimentks.finance.TransactionType
 import com.erkan.experimentks.finance.transaction.domain.Transaction
+import com.erkan.experimentks.shared.domain.createdAtOrThrow
+import com.erkan.experimentks.shared.domain.updatedAtOrThrow
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
@@ -13,7 +15,8 @@ data class CreateTransactionRequest(
 	@field:NotNull
 	val categoryId: UUID,
 
-	val type: TransactionType,
+	@field:NotNull
+	val type: TransactionType?,
 
 	@field:DecimalMin("0.01")
 	val amount: BigDecimal,
@@ -29,7 +32,8 @@ data class UpdateTransactionRequest(
 	@field:NotNull
 	val categoryId: UUID,
 
-	val type: TransactionType,
+	@field:NotNull
+	val type: TransactionType?,
 
 	@field:DecimalMin("0.01")
 	val amount: BigDecimal,
@@ -73,8 +77,8 @@ fun Transaction.toResponse(): TransactionResponse =
 		amount = amount,
 		note = note,
 		occurredAt = occurredAt,
-		createdAt = requireNotNull(createdAt),
-		updatedAt = requireNotNull(updatedAt),
+		createdAt = createdAtOrThrow,
+		updatedAt = updatedAtOrThrow,
 		deletedAt = deletedAt,
 		category = TransactionCategoryResponse(
 			id = category.id,

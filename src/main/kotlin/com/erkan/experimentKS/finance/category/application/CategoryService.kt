@@ -29,8 +29,9 @@ class CategoryService(
 		userId: UUID,
 		request: CreateCategoryRequest,
 	): CategoryResponse {
+		val categoryType = requireNotNull(request.type)
 		val normalizedName = request.name.trim()
-		if (categoryRepository.existsActiveByUserIdAndTypeAndName(userId, request.type, normalizedName)) {
+		if (categoryRepository.existsActiveByUserIdAndTypeAndName(userId, categoryType, normalizedName)) {
 			throw ConflictException("CATEGORY_ALREADY_EXISTS", "A category with this name already exists.")
 		}
 
@@ -38,7 +39,7 @@ class CategoryService(
 		return categoryRepository.saveAndFlush(
 			Category(
 				user = user,
-				type = request.type,
+				type = categoryType,
 				name = normalizedName,
 			),
 		).toResponse()

@@ -62,15 +62,16 @@ class TransactionService(
 		userId: UUID,
 		request: CreateTransactionRequest,
 	): TransactionResponse {
+		val transactionType = requireNotNull(request.type)
 		val category = categoryService.findOwnedActiveCategory(userId, request.categoryId)
-		validateCategoryType(category.type.name, request.type.name)
+		validateCategoryType(category.type.name, transactionType.name)
 
 		val user = userRepository.getReferenceById(userId)
 		return transactionRepository.saveAndFlush(
 			Transaction(
 				user = user,
 				category = category,
-				type = request.type,
+				type = transactionType,
 				note = request.note?.trim()?.takeIf { it.isNotBlank() },
 				amount = request.amount,
 				occurredAt = request.occurredAt,
@@ -84,12 +85,13 @@ class TransactionService(
 		transactionId: UUID,
 		request: UpdateTransactionRequest,
 	): TransactionResponse {
+		val transactionType = requireNotNull(request.type)
 		val transaction = findOwnedTransaction(userId, transactionId)
 		val category = categoryService.findOwnedActiveCategory(userId, request.categoryId)
-		validateCategoryType(category.type.name, request.type.name)
+		validateCategoryType(category.type.name, transactionType.name)
 
 		transaction.category = category
-		transaction.type = request.type
+		transaction.type = transactionType
 		transaction.note = request.note?.trim()?.takeIf { it.isNotBlank() }
 		transaction.amount = request.amount
 		transaction.occurredAt = request.occurredAt

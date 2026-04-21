@@ -2,7 +2,10 @@ package com.erkan.experimentks.finance.category.api
 
 import com.erkan.experimentks.finance.TransactionType
 import com.erkan.experimentks.finance.category.domain.Category
+import com.erkan.experimentks.shared.domain.createdAtOrThrow
+import com.erkan.experimentks.shared.domain.updatedAtOrThrow
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 import java.time.Instant
 import java.util.UUID
@@ -12,7 +15,8 @@ data class CreateCategoryRequest(
 	@field:Size(max = 80)
 	val name: String,
 
-	val type: TransactionType,
+	@field:NotNull
+	val type: TransactionType?,
 )
 
 data class CategoryResponse(
@@ -29,7 +33,7 @@ fun Category.toResponse(): CategoryResponse =
 		id = id,
 		name = name,
 		type = type,
-		createdAt = requireNotNull(createdAt),
-		updatedAt = requireNotNull(updatedAt),
+		createdAt = createdAtOrThrow,
+		updatedAt = updatedAtOrThrow,
 		deletedAt = deletedAt,
 	)
