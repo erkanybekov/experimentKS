@@ -1,3 +1,7 @@
+spring:
+  main:
+    lazy-initialization: true
+
 app:
   auth:
     secret: ${JWT_SECRET}
