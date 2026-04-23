@@ -7,6 +7,7 @@ import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -108,5 +109,93 @@ class ChatIntegrationTest : AbstractIntegrationTest() {
 		)
 			.andExpect(status().isNotFound)
 			.andExpect(jsonPath("$.code", equalTo("CHAT_ROOM_NOT_FOUND")))
+	}
+
+	@Test
+	fun `message author can delete message and room preview is recalculated`() {
+		val ownerTokens = signup("chat-delete-owner@example.com", displayName = "Delete Owner")
+		val memberTokens = signup("chat-delete-member@example.com", displayName = "Delete Member")
+
+		val ownerUserId = UUID.fromString(currentUserId(ownerTokens.accessToken))
+		val memberUserId = UUID.fromString(currentUserId(memberTokens.accessToken))
+
+		val roomResponse = mockMvc.perform(
+			post("/api/v1/chat/rooms")
+				.header("Authorization", bearer(ownerTokens.accessToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(
+					"""
+					{
+					  "name": "Delete Room"
+					}
+					""".trimIndent(),
+				),
+		)
+			.andExpect(status().isCreated)
+			.andReturn()
+			.response
+
+		val roomId = UUID.fromString(objectMapper.readTree(roomResponse.contentAsString)["id"].asText())
+
+		mockMvc.perform(
+			post("/api/v1/chat/rooms/$roomId/join")
+				.header("Authorization", bearer(memberTokens.accessToken)),
+		)
+			.andExpect(status().isOk)
+
+		val firstMessage = chatService.sendMessage(
+			userId = ownerUserId,
+			roomId = roomId,
+			clientMessageId = UUID.randomUUID(),
+			content = "First message stays",
+		)
+		val secondMessage = chatService.sendMessage(
+			userId = memberUserId,
+			roomId = roomId,
+			clientMessageId = UUID.randomUUID(),
+			content = "Second message goes away",
+		)
+
+		mockMvc.perform(
+			delete("/api/v1/chat/rooms/$roomId/messages/${secondMessage.message.id}")
+				.header("Authorization", bearer(memberTokens.accessToken)),
+		)
+			.andExpect(status().isNoContent)
+
+		mockMvc.perform(
+			get("/api/v1/chat/rooms/$roomId/messages")
+				.header("Authorization", bearer(ownerTokens.accessToken)),
+		)
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.items.length()").value(1))
+			.andExpect(jsonPath("$.items[0].id").value(firstMessage.message.id.toString()))
+
+		mockMvc.perform(
+			get("/api/v1/chat/rooms")
+				.header("Authorization", bearer(ownerTokens.accessToken)),
+		)
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$[0].lastMessagePreview").value("First message stays"))
+
+		mockMvc.perform(
+			delete("/api/v1/chat/rooms/$roomId/messages/${firstMessage.message.id}")
+				.header("Authorization", bearer(memberTokens.accessToken)),
+		)
+			.andExpect(status().isNotFound)
+			.andExpect(jsonPath("$.code", equalTo("CHAT_MESSAGE_NOT_FOUND")))
+
+		mockMvc.perform(
+			delete("/api/v1/chat/rooms/$roomId/messages/${firstMessage.message.id}")
+				.header("Authorization", bearer(ownerTokens.accessToken)),
+		)
+			.andExpect(status().isNoContent)
+
+		mockMvc.perform(
+			get("/api/v1/chat/rooms")
+				.header("Authorization", bearer(ownerTokens.accessToken)),
+		)
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$[0].lastMessagePreview").value(nullValue()))
+			.andExpect(jsonPath("$[0].lastActivityAt").value(nullValue()))
 	}
 }

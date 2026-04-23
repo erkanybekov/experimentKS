@@ -65,6 +65,7 @@ Authenticated:
 - `POST /api/v1/chat/rooms`
 - `POST /api/v1/chat/rooms/{roomId}/join`
 - `GET /api/v1/chat/rooms/{roomId}/messages`
+- `DELETE /api/v1/chat/rooms/{roomId}/messages/{messageId}`
 - `GET /api/v1/categories`
 - `POST /api/v1/categories`
 - `GET /api/v1/transactions`
@@ -84,6 +85,7 @@ WebSocket:
   - `room.unsubscribed`
   - `message.created`
   - `message.ack`
+  - `message.deleted`
   - `error`
 
 Notes for chat clients:
@@ -92,6 +94,7 @@ Notes for chat clients:
 - missing or invalid token during the WebSocket handshake returns HTTP `401 Unauthorized`; if an established session loses auth context, the server closes it with code `4401` and reason `AUTHENTICATION_REQUIRED`.
 - `message.created` carries the same `ChatMessageResponse` shape as REST.
 - `message.ack` is returned to the sending session and includes the full server message payload keyed by `clientMessageId`.
+- `message.deleted` carries `{ roomId, messageId }` so subscribed clients can evict a removed message.
 - reading room history does not require `join` if the user is already a member of the room.
 
 ## Environment Variables

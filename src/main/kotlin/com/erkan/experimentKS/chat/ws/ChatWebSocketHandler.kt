@@ -1,9 +1,12 @@
 package com.erkan.experimentks.chat.ws
 
+import com.erkan.experimentks.chat.application.ChatMessageDeletedEvent
 import com.erkan.experimentks.chat.application.ChatService
 import com.erkan.experimentks.shared.api.ApiException
 import com.erkan.experimentks.shared.security.AuthenticatedUser
 import org.springframework.stereotype.Component
+import org.springframework.transaction.event.TransactionPhase
+import org.springframework.transaction.event.TransactionalEventListener
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
@@ -73,6 +76,18 @@ class ChatWebSocketHandler(
 				roomSessions.remove(roomId)
 			}
 		}
+	}
+
+	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+	fun handleMessageDeleted(event: ChatMessageDeletedEvent) {
+		broadcastToRoom(
+			roomId = event.roomId,
+			type = MESSAGE_DELETED_EVENT_TYPE,
+			payload = ChatMessageDeletedPayload(
+				roomId = event.roomId,
+				messageId = event.messageId,
+			),
+		)
 	}
 
 	private fun subscribeRoom(
@@ -252,6 +267,7 @@ class ChatWebSocketHandler(
 		private const val ROOM_UNSUBSCRIBED_EVENT_TYPE = "room.unsubscribed"
 		private const val MESSAGE_CREATED_EVENT_TYPE = "message.created"
 		private const val MESSAGE_ACK_EVENT_TYPE = "message.ack"
+		private const val MESSAGE_DELETED_EVENT_TYPE = "message.deleted"
 		private const val ERROR_EVENT_TYPE = "error"
 	}
 }

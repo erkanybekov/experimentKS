@@ -39,4 +39,12 @@ class ChatFacade(
 		pageable: Pageable,
 	): PageResponse<ChatMessageResponse> =
 		withContext(blockingTaskDispatcher) { chatService.listMessages(userId, roomId, pageable) }
+
+	suspend fun deleteMessage(
+		userId: UUID,
+		roomId: UUID,
+		messageId: UUID,
+	) {
+		withContext(blockingTaskDispatcher) { chatService.deleteMessage(userId, roomId, messageId) }
+	}
 }

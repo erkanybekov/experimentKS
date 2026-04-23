@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.http.MediaType
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.net.URI
@@ -116,6 +117,74 @@ class ChatWebSocketIntegrationTest : AbstractIntegrationTest() {
 
 		val handshakeException = exception.cause as WebSocketHandshakeException
 		assertEquals(401, handshakeException.response.statusCode())
+	}
+
+	@Test
+	fun `rest message delete broadcasts websocket deletion event`() {
+		val ownerTokens = signup("ws-delete-owner@example.com", displayName = "Socket Delete Owner")
+		val memberTokens = signup("ws-delete-member@example.com", displayName = "Socket Delete Member")
+
+		val roomId = createRoom(ownerTokens.accessToken, "Socket Delete Room")
+		joinRoom(memberTokens.accessToken, roomId)
+
+		val ownerListener = QueueingWebSocketListener()
+		val memberListener = QueueingWebSocketListener()
+		val ownerSocket = connect(ownerTokens.accessToken, ownerListener)
+		val memberSocket = connect(memberTokens.accessToken, memberListener)
+
+		try {
+			memberSocket.sendText(
+				"""
+				{
+				  "action": "SUBSCRIBE_ROOM",
+				  "roomId": "$roomId",
+				  "clientMessageId": null,
+				  "content": null
+				}
+				""".trimIndent(),
+				true,
+			).join()
+
+			val subscribedEvent = memberListener.awaitMessage()
+			assertEquals("room.subscribed", subscribedEvent["type"].asText())
+
+			val clientMessageId = UUID.randomUUID()
+			ownerSocket.sendText(
+				"""
+				{
+				  "action": "SEND_MESSAGE",
+				  "roomId": "$roomId",
+				  "clientMessageId": "$clientMessageId",
+				  "content": "Delete me over REST"
+				}
+				""".trimIndent(),
+				true,
+			).join()
+
+			val ackEvent = ownerListener.awaitMessage()
+			assertEquals("message.ack", ackEvent["type"].asText())
+			val messageId = UUID.fromString(ackEvent["payload"]["id"].asText())
+
+			val createdEvent = memberListener.awaitMessage()
+			assertEquals("message.created", createdEvent["type"].asText())
+			assertEquals(messageId.toString(), createdEvent["payload"]["id"].asText())
+
+			mockMvc.perform(
+				delete("/api/v1/chat/rooms/$roomId/messages/$messageId")
+					.header("Authorization", bearer(ownerTokens.accessToken)),
+			)
+				.andExpect(status().isNoContent)
+
+			val deletedEvent = memberListener.awaitMessage()
+			assertEquals("message.deleted", deletedEvent["type"].asText())
+			assertNotNull(UUID.fromString(deletedEvent["eventId"].asText()))
+			assertNotNull(Instant.parse(deletedEvent["serverTime"].asText()))
+			assertEquals(roomId.toString(), deletedEvent["payload"]["roomId"].asText())
+			assertEquals(messageId.toString(), deletedEvent["payload"]["messageId"].asText())
+		} finally {
+			ownerSocket.sendClose(WebSocket.NORMAL_CLOSURE, "done").join()
+			memberSocket.sendClose(WebSocket.NORMAL_CLOSURE, "done").join()
+		}
 	}
 
 	private fun connect(

@@ -27,6 +27,11 @@ data class ChatSocketRoomSubscriptionPayload(
 	val roomId: UUID,
 )
 
+data class ChatMessageDeletedPayload(
+	val roomId: UUID,
+	val messageId: UUID,
+)
+
 data class ChatSocketErrorPayload(
 	val code: String,
 	val message: String,

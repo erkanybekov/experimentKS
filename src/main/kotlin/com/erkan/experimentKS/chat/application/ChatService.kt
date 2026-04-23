@@ -13,8 +13,10 @@ import com.erkan.experimentks.chat.domain.ChatRoomMemberRepository
 import com.erkan.experimentks.chat.domain.ChatRoomRepository
 import com.erkan.experimentks.shared.api.BadRequestException
 import com.erkan.experimentks.shared.api.NotFoundException
+import com.erkan.experimentks.shared.domain.createdAtOrThrow
 import com.erkan.experimentks.shared.pagination.PageResponse
 import com.erkan.experimentks.shared.pagination.toPageResponse
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Sort
@@ -36,6 +38,7 @@ class ChatService(
 	private val chatMessageRepository: ChatMessageRepository,
 	private val userRepository: UserRepository,
 	private val clock: Clock,
+	private val applicationEventPublisher: ApplicationEventPublisher,
 ) {
 
 	@Transactional(readOnly = true)
@@ -178,6 +181,29 @@ class ChatService(
 		)
 	}
 
+	@Transactional
+	fun deleteMessage(
+		userId: UUID,
+		roomId: UUID,
+		messageId: UUID,
+	) {
+		val message = findOwnedMessage(userId, roomId, messageId)
+		val room = message.room
+
+		chatMessageRepository.delete(message)
+		chatMessageRepository.flush()
+
+		room.lastActivityAt = chatMessageRepository.findTopByRoomIdOrderByCreatedAtDesc(roomId)
+			?.createdAtOrThrow
+
+		applicationEventPublisher.publishEvent(
+			ChatMessageDeletedEvent(
+				roomId = roomId,
+				messageId = messageId,
+			),
+		)
+	}
+
 	@Transactional(readOnly = true)
 	fun isMember(
 		userId: UUID,
@@ -196,6 +222,14 @@ class ChatService(
 	private fun findRoom(roomId: UUID): ChatRoom =
 		chatRoomRepository.findById(roomId)
 			.orElseThrow { NotFoundException("CHAT_ROOM_NOT_FOUND", "Chat room $roomId was not found.") }
+
+	private fun findOwnedMessage(
+		userId: UUID,
+		roomId: UUID,
+		messageId: UUID,
+	): ChatMessage =
+		chatMessageRepository.findByIdAndRoomIdAndSenderUserId(messageId, roomId, userId)
+			?: throw NotFoundException("CHAT_MESSAGE_NOT_FOUND", "Chat message $messageId was not found.")
 
 	private fun sanitizePageable(pageable: Pageable): Pageable =
 		PageRequest.of(

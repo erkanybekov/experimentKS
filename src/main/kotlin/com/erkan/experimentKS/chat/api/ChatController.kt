@@ -10,6 +10,7 @@ import org.springframework.data.domain.Sort
 import org.springframework.data.web.PageableDefault
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -52,4 +53,14 @@ class ChatController(
 		pageable: Pageable,
 	): PageResponse<ChatMessageResponse> =
 		chatFacade.listMessages(currentUser.id, roomId, pageable)
+
+	@DeleteMapping("/{roomId}/messages/{messageId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	suspend fun deleteMessage(
+		@AuthenticationPrincipal currentUser: AuthenticatedUser,
+		@PathVariable roomId: UUID,
+		@PathVariable messageId: UUID,
+	) {
+		chatFacade.deleteMessage(currentUser.id, roomId, messageId)
+	}
 }

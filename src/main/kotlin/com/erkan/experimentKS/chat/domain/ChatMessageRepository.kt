@@ -8,6 +8,12 @@ import java.util.UUID
 interface ChatMessageRepository : JpaRepository<ChatMessage, UUID> {
 	fun findByRoomIdOrderByCreatedAtDesc(roomId: UUID, pageable: Pageable): Page<ChatMessage>
 
+	fun findByIdAndRoomIdAndSenderUserId(
+		id: UUID,
+		roomId: UUID,
+		senderUserId: UUID,
+	): ChatMessage?
+
 	fun findByRoomIdAndSenderUserIdAndClientMessageId(
 		roomId: UUID,
 		senderUserId: UUID,
