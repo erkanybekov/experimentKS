@@ -2,7 +2,10 @@ package com.erkan.experimentks.config
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.boot.env.EnvironmentPostProcessor
+import org.springframework.core.io.support.SpringFactoriesLoader
 
 class RenderDatabaseUrlEnvironmentPostProcessorTest {
 
@@ -28,5 +31,18 @@ class RenderDatabaseUrlEnvironmentPostProcessorTest {
 		)
 
 		assertNull(result)
+	}
+
+	@Test
+	fun `is registered through spring factories`() {
+		val loadedPostProcessors = SpringFactoriesLoader.loadFactories(
+			EnvironmentPostProcessor::class.java,
+			javaClass.classLoader,
+		)
+
+		assertTrue(
+			loadedPostProcessors.any { it is RenderDatabaseUrlEnvironmentPostProcessor },
+			"RenderDatabaseUrlEnvironmentPostProcessor must be discoverable via META-INF/spring.factories",
+		)
 	}
 }
