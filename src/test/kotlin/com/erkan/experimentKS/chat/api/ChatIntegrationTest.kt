@@ -20,6 +20,111 @@ class ChatIntegrationTest : AbstractIntegrationTest() {
 	private lateinit var chatService: ChatService
 
 	@Test
+	fun `room member can add another user by email and invited user can chat without join`() {
+		val ownerTokens = signup("invite-owner@example.com", displayName = "Invite Owner")
+		val invitedTokens = signup("invite-member@example.com", displayName = "Invite Member")
+		val outsiderTokens = signup("invite-outsider@example.com", displayName = "Invite Outsider")
+
+		val invitedUserId = UUID.fromString(currentUserId(invitedTokens.accessToken))
+
+		val roomResponse = mockMvc.perform(
+			post("/api/v1/chat/rooms")
+				.header("Authorization", bearer(ownerTokens.accessToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(
+					"""
+					{
+					  "name": "Invite Room"
+					}
+					""".trimIndent(),
+				),
+		)
+			.andExpect(status().isCreated)
+			.andReturn()
+			.response
+
+		val roomId = UUID.fromString(objectMapper.readTree(roomResponse.contentAsString)["id"].asText())
+
+		mockMvc.perform(
+			post("/api/v1/chat/rooms/$roomId/members")
+				.header("Authorization", bearer(ownerTokens.accessToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(
+					"""
+					{
+					  "email": "INVITE-MEMBER@EXAMPLE.COM"
+					}
+					""".trimIndent(),
+				),
+		)
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.memberCount").value(2))
+
+		mockMvc.perform(
+			post("/api/v1/chat/rooms/$roomId/members")
+				.header("Authorization", bearer(ownerTokens.accessToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(
+					"""
+					{
+					  "email": "invite-member@example.com"
+					}
+					""".trimIndent(),
+				),
+		)
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.memberCount").value(2))
+
+		val invitedMessage = chatService.sendMessage(
+			userId = invitedUserId,
+			roomId = roomId,
+			clientMessageId = UUID.randomUUID(),
+			content = "Message from invited member",
+		)
+
+		org.junit.jupiter.api.Assertions.assertTrue(invitedMessage.created)
+
+		mockMvc.perform(
+			get("/api/v1/chat/rooms")
+				.header("Authorization", bearer(invitedTokens.accessToken)),
+		)
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$[0].id").value(roomId.toString()))
+			.andExpect(jsonPath("$[0].memberCount").value(2))
+			.andExpect(jsonPath("$[0].lastMessagePreview").value("Message from invited member"))
+
+		mockMvc.perform(
+			post("/api/v1/chat/rooms/$roomId/members")
+				.header("Authorization", bearer(outsiderTokens.accessToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(
+					"""
+					{
+					  "email": "invite-member@example.com"
+					}
+					""".trimIndent(),
+				),
+		)
+			.andExpect(status().isNotFound)
+			.andExpect(jsonPath("$.code", equalTo("CHAT_ROOM_NOT_FOUND")))
+
+		mockMvc.perform(
+			post("/api/v1/chat/rooms/$roomId/members")
+				.header("Authorization", bearer(ownerTokens.accessToken))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(
+					"""
+					{
+					  "email": "unknown@example.com"
+					}
+					""".trimIndent(),
+				),
+		)
+			.andExpect(status().isNotFound)
+			.andExpect(jsonPath("$.code", equalTo("USER_NOT_FOUND")))
+	}
+
+	@Test
 	fun `chat room membership message history and idempotent send work without extra join for readers`() {
 		val ownerTokens = signup("chat-owner@example.com", displayName = "Chat Owner")
 		val memberTokens = signup("chat-member@example.com", displayName = "Chat Member")

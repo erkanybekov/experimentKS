@@ -1,6 +1,7 @@
 package com.erkan.experimentks.chat.application
 
 import com.erkan.experimentks.auth.domain.UserRepository
+import com.erkan.experimentks.chat.api.AddChatRoomMemberRequest
 import com.erkan.experimentks.chat.api.ChatMessageResponse
 import com.erkan.experimentks.chat.api.ChatRoomResponse
 import com.erkan.experimentks.chat.api.CreateChatRoomRequest
@@ -81,11 +82,7 @@ class ChatService(
 			),
 		)
 
-		return room.toResponse(
-			member = member,
-			memberCount = 1,
-			lastMessagePreview = null,
-		)
+		return toRoomResponse(room, member)
 	}
 
 	@Transactional
@@ -96,13 +93,7 @@ class ChatService(
 		val room = findRoom(roomId)
 		val existingMembership = chatRoomMemberRepository.findByRoomIdAndUserId(roomId, userId)
 		if (existingMembership != null) {
-			return room.toResponse(
-				member = existingMembership,
-				memberCount = chatRoomMemberRepository.countByRoomId(roomId),
-				lastMessagePreview = chatMessageRepository.findTopByRoomIdOrderByCreatedAtDesc(roomId)
-					?.content
-					?.take(MAX_MESSAGE_PREVIEW_LENGTH),
-			)
+			return toRoomResponse(room, existingMembership)
 		}
 
 		val joinedAt = Instant.now(clock)
@@ -114,13 +105,36 @@ class ChatService(
 			),
 		)
 
-		return room.toResponse(
-			member = membership,
-			memberCount = chatRoomMemberRepository.countByRoomId(roomId),
-			lastMessagePreview = chatMessageRepository.findTopByRoomIdOrderByCreatedAtDesc(roomId)
-				?.content
-				?.take(MAX_MESSAGE_PREVIEW_LENGTH),
-		)
+		return toRoomResponse(room, membership)
+	}
+
+	@Transactional
+	fun addMember(
+		userId: UUID,
+		roomId: UUID,
+		request: AddChatRoomMemberRequest,
+	): ChatRoomResponse {
+		val requesterMembership = findMembership(userId, roomId)
+		val normalizedEmail = request.email.trim().lowercase()
+		if (normalizedEmail.isBlank()) {
+			throw BadRequestException("CHAT_MEMBER_EMAIL_BLANK", "Chat member email must not be blank.")
+		}
+
+		val invitedUser = userRepository.findByEmailAndDeletedAtIsNull(normalizedEmail)
+			?: throw NotFoundException("USER_NOT_FOUND", "User with email $normalizedEmail was not found.")
+		val room = requesterMembership.room
+		val existingMembership = chatRoomMemberRepository.findByRoomIdAndUserId(roomId, invitedUser.id)
+		if (existingMembership == null) {
+			chatRoomMemberRepository.saveAndFlush(
+				ChatRoomMember(
+					room = room,
+					user = invitedUser,
+					joinedAt = Instant.now(clock),
+				),
+			)
+		}
+
+		return toRoomResponse(room, requesterMembership)
 	}
 
 	@Transactional(readOnly = true)
@@ -214,14 +228,19 @@ class ChatService(
 		userId: UUID,
 		roomId: UUID,
 	) {
-		if (!chatRoomMemberRepository.existsByRoomIdAndUserId(roomId, userId)) {
-			throw NotFoundException("CHAT_ROOM_NOT_FOUND", "Chat room $roomId was not found.")
-		}
+		findMembership(userId, roomId)
 	}
 
 	private fun findRoom(roomId: UUID): ChatRoom =
 		chatRoomRepository.findById(roomId)
 			.orElseThrow { NotFoundException("CHAT_ROOM_NOT_FOUND", "Chat room $roomId was not found.") }
+
+	private fun findMembership(
+		userId: UUID,
+		roomId: UUID,
+	): ChatRoomMember =
+		chatRoomMemberRepository.findByRoomIdAndUserId(roomId, userId)
+			?: throw NotFoundException("CHAT_ROOM_NOT_FOUND", "Chat room $roomId was not found.")
 
 	private fun findOwnedMessage(
 		userId: UUID,
@@ -236,6 +255,18 @@ class ChatService(
 			pageable.pageNumber,
 			pageable.pageSize.coerceIn(1, 100),
 			if (pageable.sort.isSorted) pageable.sort else DEFAULT_SORT,
+		)
+
+	private fun toRoomResponse(
+		room: ChatRoom,
+		member: ChatRoomMember,
+	): ChatRoomResponse =
+		room.toResponse(
+			member = member,
+			memberCount = chatRoomMemberRepository.countByRoomId(room.id),
+			lastMessagePreview = chatMessageRepository.findTopByRoomIdOrderByCreatedAtDesc(room.id)
+				?.content
+				?.take(MAX_MESSAGE_PREVIEW_LENGTH),
 		)
 
 	companion object {

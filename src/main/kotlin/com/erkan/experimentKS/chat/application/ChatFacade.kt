@@ -2,6 +2,7 @@ package com.erkan.experimentks.chat.application
 
 import com.erkan.experimentks.chat.api.ChatMessageResponse
 import com.erkan.experimentks.chat.api.ChatRoomResponse
+import com.erkan.experimentks.chat.api.AddChatRoomMemberRequest
 import com.erkan.experimentks.chat.api.CreateChatRoomRequest
 import com.erkan.experimentks.shared.pagination.PageResponse
 import kotlinx.coroutines.CoroutineDispatcher
@@ -32,6 +33,13 @@ class ChatFacade(
 		roomId: UUID,
 	): ChatRoomResponse =
 		withContext(blockingTaskDispatcher) { chatService.joinRoom(userId, roomId) }
+
+	suspend fun addMember(
+		userId: UUID,
+		roomId: UUID,
+		request: AddChatRoomMemberRequest,
+	): ChatRoomResponse =
+		withContext(blockingTaskDispatcher) { chatService.addMember(userId, roomId, request) }
 
 	suspend fun listMessages(
 		userId: UUID,

@@ -45,6 +45,13 @@ class ChatController(
 		@PathVariable roomId: UUID,
 	): ChatRoomResponse = chatFacade.joinRoom(currentUser.id, roomId)
 
+	@PostMapping("/{roomId}/members")
+	suspend fun addMember(
+		@AuthenticationPrincipal currentUser: AuthenticatedUser,
+		@PathVariable roomId: UUID,
+		@Valid @RequestBody request: AddChatRoomMemberRequest,
+	): ChatRoomResponse = chatFacade.addMember(currentUser.id, roomId, request)
+
 	@GetMapping("/{roomId}/messages")
 	suspend fun listMessages(
 		@AuthenticationPrincipal currentUser: AuthenticatedUser,

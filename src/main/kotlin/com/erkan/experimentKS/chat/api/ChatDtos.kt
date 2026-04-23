@@ -5,6 +5,7 @@ import com.erkan.experimentks.chat.domain.ChatRoom
 import com.erkan.experimentks.chat.domain.ChatRoomMember
 import com.erkan.experimentks.shared.domain.createdAtOrThrow
 import com.erkan.experimentks.shared.domain.updatedAtOrThrow
+import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import java.time.Instant
@@ -14,6 +15,13 @@ data class CreateChatRoomRequest(
 	@field:NotBlank
 	@field:Size(max = 120)
 	val name: String,
+)
+
+data class AddChatRoomMemberRequest(
+	@field:NotBlank
+	@field:Email
+	@field:Size(max = 255)
+	val email: String,
 )
 
 data class ChatRoomResponse(

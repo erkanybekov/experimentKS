@@ -63,6 +63,7 @@ Authenticated:
 - `GET /api/v1/users/me`
 - `GET /api/v1/chat/rooms`
 - `POST /api/v1/chat/rooms`
+- `POST /api/v1/chat/rooms/{roomId}/members`
 - `POST /api/v1/chat/rooms/{roomId}/join`
 - `GET /api/v1/chat/rooms/{roomId}/messages`
 - `DELETE /api/v1/chat/rooms/{roomId}/messages/{messageId}`
@@ -95,6 +96,7 @@ Notes for chat clients:
 - `message.created` carries the same `ChatMessageResponse` shape as REST.
 - `message.ack` is returned to the sending session and includes the full server message payload keyed by `clientMessageId`.
 - `message.deleted` carries `{ roomId, messageId }` so subscribed clients can evict a removed message.
+- `POST /api/v1/chat/rooms/{roomId}/members` adds another user to the room by email; the invited user can read history and send messages without calling `join`.
 - reading room history does not require `join` if the user is already a member of the room.
 
 ## Environment Variables
